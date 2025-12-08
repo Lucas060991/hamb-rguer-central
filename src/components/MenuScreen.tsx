@@ -1,0 +1,204 @@
+import { useState } from 'react';
+import { Plus, Pencil, Trash2, X, Settings } from 'lucide-react';
+import { Product, getProducts, addProduct, updateProduct, deleteProduct, addToCart } from '@/lib/storage';
+import { toast } from 'sonner';
+
+interface MenuScreenProps {
+  products: Product[];
+  onProductsChange: () => void;
+  onAddToCart: (product: Product) => void;
+}
+
+export function MenuScreen({ products, onProductsChange, onAddToCart }: MenuScreenProps) {
+  const [showAdmin, setShowAdmin] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    price: '',
+    image: '',
+  });
+
+  const handleAddToCart = (product: Product) => {
+    addToCart(product);
+    onAddToCart(product);
+    toast.success(`${product.name} adicionado ao carrinho!`);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const productData = {
+      name: formData.name,
+      description: formData.description,
+      price: parseFloat(formData.price),
+      image: formData.image || 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&h=300&fit=crop',
+    };
+
+    if (editingProduct) {
+      updateProduct(editingProduct.id, productData);
+      toast.success('Produto atualizado!');
+    } else {
+      addProduct(productData);
+      toast.success('Produto adicionado!');
+    }
+
+    resetForm();
+    onProductsChange();
+  };
+
+  const handleEdit = (product: Product) => {
+    setEditingProduct(product);
+    setFormData({
+      name: product.name,
+      description: product.description,
+      price: product.price.toString(),
+      image: product.image,
+    });
+    setShowForm(true);
+  };
+
+  const handleDelete = (product: Product) => {
+    if (confirm(`Remover "${product.name}"?`)) {
+      deleteProduct(product.id);
+      onProductsChange();
+      toast.success('Produto removido!');
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({ name: '', description: '', price: '', image: '' });
+    setEditingProduct(null);
+    setShowForm(false);
+  };
+
+  return (
+    <div className="animate-fade-in">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-3xl font-display text-foreground">CARDÁPIO</h2>
+        <button
+          onClick={() => setShowAdmin(!showAdmin)}
+          className={`btn-secondary flex items-center gap-2 ${showAdmin ? 'bg-primary text-primary-foreground' : ''}`}
+        >
+          <Settings className="w-4 h-4" />
+          Admin
+        </button>
+      </div>
+
+      {showAdmin && (
+        <div className="mb-6 p-4 bg-card rounded-xl border border-border animate-slide-in">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">Gerenciar Produtos</h3>
+            {!showForm && (
+              <button
+                onClick={() => setShowForm(true)}
+                className="btn-primary flex items-center gap-2 text-sm py-2"
+              >
+                <Plus className="w-4 h-4" />
+                Novo Produto
+              </button>
+            )}
+          </div>
+
+          {showForm && (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input
+                  type="text"
+                  placeholder="Nome do produto"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="input-field"
+                  required
+                />
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="Preço (R$)"
+                  value={formData.price}
+                  onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                  className="input-field"
+                  required
+                />
+              </div>
+              <input
+                type="text"
+                placeholder="Descrição"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                className="input-field"
+                required
+              />
+              <input
+                type="url"
+                placeholder="URL da imagem (opcional)"
+                value={formData.image}
+                onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+                className="input-field"
+              />
+              <div className="flex gap-2">
+                <button type="submit" className="btn-primary">
+                  {editingProduct ? 'Atualizar' : 'Adicionar'}
+                </button>
+                <button type="button" onClick={resetForm} className="btn-secondary">
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {products.map((product, index) => (
+          <div
+            key={product.id}
+            className="product-card animate-slide-in"
+            style={{ animationDelay: `${index * 0.05}s` }}
+          >
+            <div className="relative h-48 overflow-hidden">
+              <img
+                src={product.image}
+                alt={product.name}
+                className="w-full h-full object-cover"
+              />
+              {showAdmin && (
+                <div className="absolute top-2 right-2 flex gap-2">
+                  <button
+                    onClick={() => handleEdit(product)}
+                    className="p-2 bg-card/90 rounded-lg hover:bg-card transition-colors"
+                  >
+                    <Pencil className="w-4 h-4 text-primary" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(product)}
+                    className="p-2 bg-card/90 rounded-lg hover:bg-card transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4 text-destructive" />
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="p-4">
+              <h3 className="text-lg font-semibold text-foreground mb-1">{product.name}</h3>
+              <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{product.description}</p>
+              <div className="flex items-center justify-between">
+                <span className="text-xl font-bold text-primary">
+                  R$ {product.price.toFixed(2)}
+                </span>
+                <button
+                  onClick={() => handleAddToCart(product)}
+                  className="btn-primary py-2 px-4 text-sm flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Adicionar
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
