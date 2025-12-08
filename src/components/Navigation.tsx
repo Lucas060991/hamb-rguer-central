@@ -1,4 +1,4 @@
-import { ShoppingBag, ChefHat, CreditCard, FileText, UtensilsCrossed } from 'lucide-react';
+import { ShoppingBag, ChefHat, CreditCard, FileText, UtensilsCrossed, Lock } from 'lucide-react';
 
 type Tab = 'menu' | 'cart' | 'kitchen' | 'payment' | 'logs';
 
@@ -8,17 +8,18 @@ interface NavigationProps {
   cartCount: number;
   kitchenCount: number;
   paymentCount: number;
+  isAuthenticated: boolean;
 }
 
 const tabs = [
-  { id: 'menu' as Tab, label: 'Cardápio', icon: UtensilsCrossed },
-  { id: 'cart' as Tab, label: 'Carrinho', icon: ShoppingBag },
-  { id: 'kitchen' as Tab, label: 'Cozinha', icon: ChefHat },
-  { id: 'payment' as Tab, label: 'Pagamento', icon: CreditCard },
-  { id: 'logs' as Tab, label: 'Histórico', icon: FileText },
+  { id: 'menu' as Tab, label: 'Cardápio', icon: UtensilsCrossed, protected: false },
+  { id: 'cart' as Tab, label: 'Carrinho', icon: ShoppingBag, protected: false },
+  { id: 'kitchen' as Tab, label: 'Cozinha', icon: ChefHat, protected: true },
+  { id: 'payment' as Tab, label: 'Pagamento', icon: CreditCard, protected: true },
+  { id: 'logs' as Tab, label: 'Histórico', icon: FileText, protected: true },
 ];
 
-export function Navigation({ activeTab, onTabChange, cartCount, kitchenCount, paymentCount }: NavigationProps) {
+export function Navigation({ activeTab, onTabChange, cartCount, kitchenCount, paymentCount, isAuthenticated }: NavigationProps) {
   const getBadge = (tabId: Tab) => {
     switch (tabId) {
       case 'cart': return cartCount > 0 ? cartCount : null;
@@ -51,6 +52,7 @@ export function Navigation({ activeTab, onTabChange, cartCount, kitchenCount, pa
                 >
                   <Icon className="w-4 h-4" />
                   {tab.label}
+                  {tab.protected && !isAuthenticated && <Lock className="w-3 h-3 text-muted-foreground" />}
                   {badge && (
                     <span className="absolute -top-1 -right-1 w-5 h-5 bg-accent text-accent-foreground rounded-full text-xs font-bold flex items-center justify-center">
                       {badge}
@@ -78,6 +80,7 @@ export function Navigation({ activeTab, onTabChange, cartCount, kitchenCount, pa
               >
                 <Icon className="w-4 h-4" />
                 {tab.label}
+                {tab.protected && !isAuthenticated && <Lock className="w-3 h-3 text-muted-foreground" />}
                 {badge && (
                   <span className="absolute -top-1 -right-1 w-4 h-4 bg-accent text-accent-foreground rounded-full text-[10px] font-bold flex items-center justify-center">
                     {badge}

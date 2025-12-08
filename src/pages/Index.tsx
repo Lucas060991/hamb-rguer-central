@@ -6,6 +6,8 @@ import { KitchenScreen } from '@/components/KitchenScreen';
 import { PaymentScreen } from '@/components/PaymentScreen';
 import { LogsScreen } from '@/components/LogsScreen';
 import { FloatingCart } from '@/components/FloatingCart';
+import { LoginModal } from '@/components/LoginModal';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   getProducts,
   getCart,
@@ -19,8 +21,13 @@ import {
 
 type Tab = 'menu' | 'cart' | 'kitchen' | 'payment' | 'logs';
 
+const PROTECTED_TABS: Tab[] = ['kitchen', 'payment', 'logs'];
+
 const Index = () => {
+  const { isAuthenticated, login } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>('menu');
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [pendingTab, setPendingTab] = useState<Tab | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [kitchenOrders, setKitchenOrders] = useState<Order[]>([]);
@@ -41,7 +48,30 @@ const Index = () => {
 
   const handleOrderCreated = () => {
     refreshData();
-    setActiveTab('kitchen');
+    if (isAuthenticated) {
+      setActiveTab('kitchen');
+    } else {
+      setPendingTab('kitchen');
+      setShowLoginModal(true);
+    }
+  };
+
+  const handleTabChange = (tab: Tab) => {
+    if (PROTECTED_TABS.includes(tab) && !isAuthenticated) {
+      setPendingTab(tab);
+      setShowLoginModal(true);
+    } else {
+      setActiveTab(tab);
+    }
+  };
+
+  const handleLoginSuccess = () => {
+    login();
+    setShowLoginModal(false);
+    if (pendingTab) {
+      setActiveTab(pendingTab);
+      setPendingTab(null);
+    }
   };
 
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -50,10 +80,20 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <Navigation
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={handleTabChange}
         cartCount={cartCount}
         kitchenCount={kitchenOrders.length}
         paymentCount={paymentOrders.length}
+        isAuthenticated={isAuthenticated}
+      />
+
+      <LoginModal
+        open={showLoginModal}
+        onClose={() => {
+          setShowLoginModal(false);
+          setPendingTab(null);
+        }}
+        onSuccess={handleLoginSuccess}
       />
 
       <main className="container mx-auto px-4 py-8">
