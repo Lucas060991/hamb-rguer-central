@@ -46,6 +46,12 @@ export interface LogEntry {
   customerName: string;
   paymentMethod: string;
   total: number;
+  // Full order data for reprinting
+  customer: Customer;
+  items: CartItem[];
+  subtotal: number;
+  deliveryFee: number;
+  isDelivery: boolean;
 }
 
 // Default products
@@ -292,6 +298,12 @@ export function addLog(order: Order): void {
     customerName: order.customer.name,
     paymentMethod: order.paymentMethod || 'N/A',
     total: order.total,
+    // Full order data for reprinting
+    customer: order.customer,
+    items: order.items,
+    subtotal: order.subtotal,
+    deliveryFee: order.deliveryFee,
+    isDelivery: order.isDelivery,
   };
   logs.unshift(logEntry);
   setToStorage(STORAGE_KEYS.LOGS, logs);
