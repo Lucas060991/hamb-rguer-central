@@ -18,40 +18,6 @@ import {
   Order,
   LogEntry,
 } from '@/lib/storage';
-import { useState, useEffect } from 'react';
-import { api, Produto } from '../services/api'; // Ajuste o caminho se necessário
-
-const Menu = () => {
-  const [produtos, setProdutos] = useState<Produto[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const carregarCardapio = async () => {
-      const dados = await api.getProdutos();
-      setProdutos(dados);
-      setLoading(false);
-    };
-    carregarCardapio();
-  }, []);
-
-  if (loading) return <p>Carregando delícias...</p>;
-
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {produtos.map((item) => (
-        <div key={item.id} className="card-produto border p-4 rounded">
-          <img src={item.imagem_url} alt={item.nome} className="w-full h-40 object-cover" />
-          <h3 className="font-bold text-lg">{item.nome}</h3>
-          <p className="text-gray-600">{item.descricao}</p>
-          <p className="text-green-600 font-bold">R$ {item.preco.toFixed(2)}</p>
-          <button className="bg-red-500 text-white px-4 py-2 mt-2 rounded">
-            Adicionar
-          </button>
-        </div>
-      ))}
-    </div>
-  );
-};
 
 export default Menu;
 
