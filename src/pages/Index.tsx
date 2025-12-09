@@ -19,8 +19,6 @@ import {
   LogEntry,
 } from '@/lib/storage';
 
-export default Menu;
-
 type Tab = 'menu' | 'cart' | 'kitchen' | 'payment' | 'logs';
 
 const PROTECTED_TABS: Tab[] = ['kitchen', 'payment', 'logs'];

@@ -5,8 +5,6 @@ import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { LoginModal } from '@/components/LoginModal';
 
-export default Menu;
-
 interface MenuScreenProps {
   products: Product[];
   onProductsChange: () => void;
