@@ -7,19 +7,17 @@ import { PaymentScreen } from '@/components/PaymentScreen';
 import { LogsScreen } from '@/components/LogsScreen';
 import { FloatingCart } from '@/components/FloatingCart';
 import { LoginModal } from '@/components/LoginModal';
-import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { useAuth } from '@/contexts/AuthContext';
 import {
-  fetchProducts,
-  fetchOrders,
+  getProducts,
   getCart,
+  getOrdersByStatus,
   getLogs,
-  filterOrdersByStatus,
   Product,
   CartItem,
   Order,
   LogEntry,
-} from '@/lib/api';
+} from '@/lib/storage';
 
 type Tab = 'menu' | 'cart' | 'kitchen' | 'payment' | 'logs';
 
@@ -30,58 +28,26 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState<Tab>('menu');
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [pendingTab, setPendingTab] = useState<Tab | null>(null);
-  
-  // Data states
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [kitchenOrders, setKitchenOrders] = useState<Order[]>([]);
+  const [paymentOrders, setPaymentOrders] = useState<Order[]>([]);
   const [logs, setLogs] = useState<LogEntry[]>([]);
-  
-  // Loading states
-  const [isLoadingProducts, setIsLoadingProducts] = useState(true);
-  const [isLoadingOrders, setIsLoadingOrders] = useState(false);
 
-  const refreshProducts = useCallback(async () => {
-    setIsLoadingProducts(true);
-    try {
-      const data = await fetchProducts();
-      setProducts(data);
-    } catch (error) {
-      console.error('Error loading products:', error);
-    } finally {
-      setIsLoadingProducts(false);
-    }
-  }, []);
-
-  const refreshOrders = useCallback(async () => {
-    setIsLoadingOrders(true);
-    try {
-      const data = await fetchOrders();
-      setOrders(data);
-    } catch (error) {
-      console.error('Error loading orders:', error);
-    } finally {
-      setIsLoadingOrders(false);
-    }
-  }, []);
-
-  const refreshLocalData = useCallback(() => {
+  const refreshData = useCallback(() => {
+    setProducts(getProducts());
     setCart(getCart());
+    setKitchenOrders(getOrdersByStatus('kitchen'));
+    setPaymentOrders(getOrdersByStatus('payment'));
     setLogs(getLogs());
   }, []);
-
-  const refreshData = useCallback(async () => {
-    await Promise.all([refreshProducts(), refreshOrders()]);
-    refreshLocalData();
-  }, [refreshProducts, refreshOrders, refreshLocalData]);
 
   useEffect(() => {
     refreshData();
   }, [refreshData]);
 
-  const handleOrderCreated = async () => {
-    await refreshOrders();
-    refreshLocalData();
+  const handleOrderCreated = () => {
+    refreshData();
     if (isAuthenticated) {
       setActiveTab('kitchen');
     } else {
@@ -108,8 +74,6 @@ const Index = () => {
     }
   };
 
-  const kitchenOrders = filterOrdersByStatus(orders, 'kitchen');
-  const paymentOrders = filterOrdersByStatus(orders, 'payment');
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
@@ -134,51 +98,39 @@ const Index = () => {
 
       <main className="container mx-auto px-4 py-8">
         {activeTab === 'menu' && (
-          isLoadingProducts ? (
-            <LoadingSpinner message="Carregando cardápio..." />
-          ) : (
-            <MenuScreen
-              products={products}
-              onProductsChange={refreshProducts}
-              onAddToCart={refreshLocalData}
-            />
-          )
+          <MenuScreen
+            products={products}
+            onProductsChange={refreshData}
+            onAddToCart={refreshData}
+          />
         )}
 
         {activeTab === 'cart' && (
           <CartScreen
             cart={cart}
-            onCartChange={refreshLocalData}
+            onCartChange={refreshData}
             onOrderCreated={handleOrderCreated}
           />
         )}
 
         {activeTab === 'kitchen' && (
-          isLoadingOrders ? (
-            <LoadingSpinner message="Carregando pedidos..." />
-          ) : (
-            <KitchenScreen
-              orders={kitchenOrders}
-              onOrdersChange={refreshOrders}
-            />
-          )
+          <KitchenScreen
+            orders={kitchenOrders}
+            onOrdersChange={refreshData}
+          />
         )}
 
         {activeTab === 'payment' && (
-          isLoadingOrders ? (
-            <LoadingSpinner message="Carregando pagamentos..." />
-          ) : (
-            <PaymentScreen
-              orders={paymentOrders}
-              onOrdersChange={refreshOrders}
-            />
-          )
+          <PaymentScreen
+            orders={paymentOrders}
+            onOrdersChange={refreshData}
+          />
         )}
 
         {activeTab === 'logs' && (
           <LogsScreen
             logs={logs}
-            onLogsChange={refreshLocalData}
+            onLogsChange={refreshData}
           />
         )}
       </main>
