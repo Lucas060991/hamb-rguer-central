@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Pencil, Trash2, Settings, Lock } from 'lucide-react';
 import { Product, addProduct, updateProduct, deleteProduct, addToCart } from '@/lib/storage';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { LoginModal } from '@/components/LoginModal';
+import { api } from '@/lib/api'; // Importe a API
+import { Product, addToCart } from '@/lib/storage'; // Manter addToCart local
 
 interface MenuScreenProps {
   products: Product[];
@@ -12,6 +14,8 @@ interface MenuScreenProps {
 }
 
 export function MenuScreen({ products, onProductsChange, onAddToCart }: MenuScreenProps) {
+  
+
   const { isAuthenticated, login } = useAuth();
   const [showAdmin, setShowAdmin] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -49,26 +53,29 @@ export function MenuScreen({ products, onProductsChange, onAddToCart }: MenuScre
     toast.success(`${product.name} adicionado ao carrinho!`);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const productData = {
+   const productData = {
       name: formData.name,
       description: formData.description,
       price: parseFloat(formData.price),
       image: formData.image || 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&h=300&fit=crop',
     };
 
-    if (editingProduct) {
-      updateProduct(editingProduct.id, productData);
-      toast.success('Produto atualizado!');
-    } else {
-      addProduct(productData);
-      toast.success('Produto adicionado!');
+    try {
+      if (editingProduct) {
+        await api.updateProduct(editingProduct.id, productData);
+        toast.success('Produto atualizado!');
+      } else {
+        await api.addProduct(productData);
+        toast.success('Produto adicionado!');
+      }
+      resetForm();
+      onProductsChange(); // Isso deve disparar o refresh no componente pai
+    } catch (error) {
+      toast.error('Erro ao salvar produto');
     }
-
-    resetForm();
-    onProductsChange();
   };
 
   const handleEdit = (product: Product) => {
@@ -82,11 +89,14 @@ export function MenuScreen({ products, onProductsChange, onAddToCart }: MenuScre
     setShowForm(true);
   };
 
-  const handleDelete = (product: Product) => {
+   const handleDelete = async (product: Product) => {
     if (confirm(`Remover "${product.name}"?`)) {
-      deleteProduct(product.id);
-      onProductsChange();
-      toast.success('Produto removido!');
+      try {
+        await api.deleteProduct(product.id);
+        onProductsChange();
+        toast.success('Produto removido!');
+      } catch (error) {
+        toast.error('Erro ao remover produto');
     }
   };
 
