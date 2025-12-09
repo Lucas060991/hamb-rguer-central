@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { CreditCard, Banknote, QrCode, Printer, Truck, MapPin } from 'lucide-react';
 import { Order, updateOrderStatus, addLog } from '@/lib/storage';
 import { toast } from 'sonner';
-import { api } from '@/lib/api';
 
 interface PaymentScreenProps {
   orders: Order[];
@@ -21,7 +20,7 @@ export function PaymentScreen({ orders, onOrdersChange }: PaymentScreenProps) {
   const [selectedPayment, setSelectedPayment] = useState<Record<string, PaymentMethod>>({});
   const [printingOrder, setPrintingOrder] = useState<Order | null>(null);
 
-  const handlePayment = async (order: Order) => {
+  const handlePayment = (order: Order) => {
     const method = selectedPayment[order.id];
     if (!method) {
       toast.error('Selecione uma forma de pagamento');
@@ -30,17 +29,6 @@ export function PaymentScreen({ orders, onOrdersChange }: PaymentScreenProps) {
 
     // Update order with payment method
     updateOrderStatus(order.id, 'completed', method);
-
-     const completedOrder = { ...order, paymentMethod: method };
-
-     // SALVAR NO GOOGLE SHEETS (Assíncrono, não bloqueia o print mas idealmente espera)
-    api.addLog(completedOrder).then(() => {
-        console.log("Log salvo no Sheets");
-    }).catch(err => console.error("Erro ao salvar log", err));
-    
-    // Add to local log (opcional, se quiser manter backup local)
-    addLog(completedOrder);
-    
     
     // Add to log
     addLog({ ...order, paymentMethod: method });

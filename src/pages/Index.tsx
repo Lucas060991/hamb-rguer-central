@@ -1,4 +1,3 @@
-import { api } from '@/lib/api';
 import { useState, useEffect, useCallback } from 'react';
 import { Navigation } from '@/components/Navigation';
 import { MenuScreen } from '@/components/MenuScreen';
@@ -35,7 +34,7 @@ const Index = () => {
   const [paymentOrders, setPaymentOrders] = useState<Order[]>([]);
   const [logs, setLogs] = useState<LogEntry[]>([]);
 
-  const refreshData = useCallback(async () => {
+  const refreshData = useCallback(() => {
     setProducts(getProducts());
     setCart(getCart());
     setKitchenOrders(getOrdersByStatus('kitchen'));
@@ -46,21 +45,6 @@ const Index = () => {
   useEffect(() => {
     refreshData();
   }, [refreshData]);
-
-   const sheetProducts = await api.getProducts();
-    if (sheetProducts.length > 0) {
-      setProducts(sheetProducts);
-    } else {
-      setProducts(getProducts()); 
-    }
-      
-       const sheetLogs = await api.getLogs();
-    setLogs(sheetLogs);
-
-   setCart(getCart());
-    setKitchenOrders(getOrdersByStatus('kitchen'));
-    setPaymentOrders(getOrdersByStatus('payment'));
-  }, []);
 
   const handleOrderCreated = () => {
     refreshData();

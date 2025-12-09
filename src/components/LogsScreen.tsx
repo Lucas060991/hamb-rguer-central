@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { FileText, Trash2, Printer, ChevronDown, ChevronUp, Truck, MapPin } from 'lucide-react';
 import { LogEntry, clearLogs } from '@/lib/storage';
 import { toast } from 'sonner';
-import { api } from '@/lib/api';
 
 interface LogsScreenProps {
   logs: LogEntry[];
@@ -13,9 +12,9 @@ export function LogsScreen({ logs, onLogsChange }: LogsScreenProps) {
   const [expandedOrder, setExpandedOrder] = useState<number | null>(null);
   const [printingLog, setPrintingLog] = useState<LogEntry | null>(null);
 
-   const handleClearLogs = async () => {
-    if (confirm('Limpar todo o histórico de pedidos DO BANCO DE DADOS?')) {
-      await api.clearLogs();
+  const handleClearLogs = () => {
+    if (confirm('Limpar todo o histórico de pedidos?')) {
+      clearLogs();
       onLogsChange();
       toast.success('Histórico limpo!');
     }

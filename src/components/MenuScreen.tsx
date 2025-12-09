@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { Plus, Pencil, Trash2, Settings, Lock } from 'lucide-react';
+import { Product, addProduct, updateProduct, deleteProduct, addToCart } from '@/lib/storage';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { LoginModal } from '@/components/LoginModal';
-import { api } from '@/lib/api'; // API do Google Sheets
-import { Product, addToCart } from '@/lib/storage'; // Funções locais
 
 interface MenuScreenProps {
   products: Product[];
@@ -50,7 +49,7 @@ export function MenuScreen({ products, onProductsChange, onAddToCart }: MenuScre
     toast.success(`${product.name} adicionado ao carrinho!`);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     const productData = {
@@ -60,19 +59,16 @@ export function MenuScreen({ products, onProductsChange, onAddToCart }: MenuScre
       image: formData.image || 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&h=300&fit=crop',
     };
 
-    try {
-      if (editingProduct) {
-        await api.updateProduct(editingProduct.id, productData);
-        toast.success('Produto atualizado!');
-      } else {
-        await api.addProduct(productData);
-        toast.success('Produto adicionado!');
-      }
-      resetForm();
-      onProductsChange(); // Isso deve disparar o refresh no componente pai
-    } catch (error) {
-      toast.error('Erro ao salvar produto');
+    if (editingProduct) {
+      updateProduct(editingProduct.id, productData);
+      toast.success('Produto atualizado!');
+    } else {
+      addProduct(productData);
+      toast.success('Produto adicionado!');
     }
+
+    resetForm();
+    onProductsChange();
   };
 
   const handleEdit = (product: Product) => {
@@ -86,15 +82,11 @@ export function MenuScreen({ products, onProductsChange, onAddToCart }: MenuScre
     setShowForm(true);
   };
 
-  const handleDelete = async (product: Product) => {
+  const handleDelete = (product: Product) => {
     if (confirm(`Remover "${product.name}"?`)) {
-      try {
-        await api.deleteProduct(product.id);
-        onProductsChange();
-        toast.success('Produto removido!');
-      } catch (error) {
-        toast.error('Erro ao remover produto');
-      }
+      deleteProduct(product.id);
+      onProductsChange();
+      toast.success('Produto removido!');
     }
   };
 
