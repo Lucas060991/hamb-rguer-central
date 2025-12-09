@@ -1,5 +1,6 @@
-import { FileText, Trash2 } from 'lucide-react';
-import { LogEntry, getLogs, clearLogs } from '@/lib/storage';
+import { useState } from 'react';
+import { FileText, Trash2, Printer, ChevronDown, ChevronUp, Truck, MapPin } from 'lucide-react';
+import { LogEntry, clearLogs } from '@/lib/storage';
 import { toast } from 'sonner';
 
 interface LogsScreenProps {
@@ -8,12 +9,24 @@ interface LogsScreenProps {
 }
 
 export function LogsScreen({ logs, onLogsChange }: LogsScreenProps) {
+  const [expandedOrder, setExpandedOrder] = useState<number | null>(null);
+  const [printingLog, setPrintingLog] = useState<LogEntry | null>(null);
+
   const handleClearLogs = () => {
     if (confirm('Limpar todo o histórico de pedidos?')) {
       clearLogs();
       onLogsChange();
       toast.success('Histórico limpo!');
     }
+  };
+
+  const handlePrint = (log: LogEntry) => {
+    setPrintingLog(log);
+    setTimeout(() => {
+      window.print();
+      setPrintingLog(null);
+      toast.success(`Recibo #${log.orderNumber} impresso!`);
+    }, 100);
   };
 
   const formatPaymentMethod = (method: string) => {
@@ -23,6 +36,10 @@ export function LogsScreen({ logs, onLogsChange }: LogsScreenProps) {
       case 'cartao': return 'Cartão';
       default: return method;
     }
+  };
+
+  const toggleExpand = (orderNumber: number) => {
+    setExpandedOrder(expandedOrder === orderNumber ? null : orderNumber);
   };
 
   if (logs.length === 0) {
@@ -63,30 +80,98 @@ export function LogsScreen({ logs, onLogsChange }: LogsScreenProps) {
                 <th className="text-left p-4 text-sm font-semibold text-muted-foreground">Cliente</th>
                 <th className="text-left p-4 text-sm font-semibold text-muted-foreground">Pagamento</th>
                 <th className="text-right p-4 text-sm font-semibold text-muted-foreground">Total</th>
+                <th className="text-center p-4 text-sm font-semibold text-muted-foreground">Ações</th>
               </tr>
             </thead>
             <tbody>
               {logs.map((log, index) => (
-                <tr
-                  key={`${log.orderNumber}-${index}`}
-                  className="border-b border-border last:border-0 hover:bg-secondary/30 transition-colors"
-                >
-                  <td className="p-4">
-                    <span className="font-display text-lg text-primary">
-                      #{log.orderNumber}
-                    </span>
-                  </td>
-                  <td className="p-4 text-sm text-muted-foreground">{log.dateTime}</td>
-                  <td className="p-4 text-foreground font-medium">{log.customerName}</td>
-                  <td className="p-4">
-                    <span className="text-sm bg-secondary px-2 py-1 rounded">
-                      {formatPaymentMethod(log.paymentMethod)}
-                    </span>
-                  </td>
-                  <td className="p-4 text-right font-bold text-foreground">
-                    R$ {log.total.toFixed(2)}
-                  </td>
-                </tr>
+                <>
+                  <tr
+                    key={`${log.orderNumber}-${index}`}
+                    className="border-b border-border last:border-0 hover:bg-secondary/30 transition-colors cursor-pointer"
+                    onClick={() => toggleExpand(log.orderNumber)}
+                  >
+                    <td className="p-4">
+                      <span className="font-display text-lg text-primary flex items-center gap-2">
+                        #{log.orderNumber}
+                        {expandedOrder === log.orderNumber ? (
+                          <ChevronUp className="w-4 h-4" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4" />
+                        )}
+                      </span>
+                    </td>
+                    <td className="p-4 text-sm text-muted-foreground">{log.dateTime}</td>
+                    <td className="p-4 text-foreground font-medium flex items-center gap-2">
+                      {log.customerName}
+                      {log.isDelivery && (
+                        <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <Truck className="w-3 h-3" />
+                        </span>
+                      )}
+                    </td>
+                    <td className="p-4">
+                      <span className="text-sm bg-secondary px-2 py-1 rounded">
+                        {formatPaymentMethod(log.paymentMethod)}
+                      </span>
+                    </td>
+                    <td className="p-4 text-right font-bold text-foreground">
+                      R$ {log.total.toFixed(2)}
+                    </td>
+                    <td className="p-4 text-center">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePrint(log);
+                        }}
+                        className="btn-secondary p-2 rounded-lg hover:bg-primary hover:text-primary-foreground transition-colors"
+                        title="Reimprimir recibo"
+                      >
+                        <Printer className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                  {expandedOrder === log.orderNumber && log.items && (
+                    <tr key={`${log.orderNumber}-details`} className="bg-secondary/20">
+                      <td colSpan={6} className="p-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <h4 className="font-semibold text-foreground mb-2">Itens do Pedido:</h4>
+                            <ul className="space-y-1 text-sm">
+                              {log.items.map((item) => (
+                                <li key={item.id} className="flex justify-between text-muted-foreground">
+                                  <span>{item.quantity}x {item.name}</span>
+                                  <span>R$ {(item.price * item.quantity).toFixed(2)}</span>
+                                </li>
+                              ))}
+                            </ul>
+                            {log.isDelivery && (
+                              <div className="flex justify-between text-sm mt-2 pt-2 border-t border-border">
+                                <span className="text-muted-foreground">Frete</span>
+                                <span className="text-foreground">R$ {log.deliveryFee.toFixed(2)}</span>
+                              </div>
+                            )}
+                          </div>
+                          <div>
+                            <h4 className="font-semibold text-foreground mb-2">Dados do Cliente:</h4>
+                            <div className="text-sm text-muted-foreground space-y-1">
+                              <p><strong>Nome:</strong> {log.customer.name}</p>
+                              {log.customer.phone && (
+                                <p><strong>Telefone:</strong> {log.customer.phone}</p>
+                              )}
+                              {log.isDelivery && log.customer.address && (
+                                <p className="flex items-start gap-1">
+                                  <MapPin className="w-3 h-3 mt-1 shrink-0" />
+                                  {log.customer.address}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </>
               ))}
             </tbody>
           </table>
@@ -112,6 +197,75 @@ export function LogsScreen({ logs, onLogsChange }: LogsScreenProps) {
           </p>
         </div>
       </div>
+
+      {/* Print Receipt */}
+      {printingLog && (
+        <div className="receipt">
+          <div className="receipt-header">
+            <h1>HAMBURGUERIA CENTRAL</h1>
+            <p>Rua Principal, 123 - Centro</p>
+            <p>Tel: (11) 99999-9999</p>
+          </div>
+          
+          <div className="receipt-divider" />
+          
+          <p style={{ textAlign: 'center', fontWeight: 'bold' }}>
+            PEDIDO #{printingLog.orderNumber}
+          </p>
+          <p>{printingLog.dateTime}</p>
+          
+          <div className="receipt-divider" />
+          
+          <p><strong>Cliente:</strong> {printingLog.customer.name}</p>
+          {printingLog.customer.phone && (
+            <p><strong>Tel:</strong> {printingLog.customer.phone}</p>
+          )}
+          {printingLog.isDelivery && printingLog.customer.address && (
+            <p><strong>Endereço:</strong> {printingLog.customer.address}</p>
+          )}
+          
+          <div className="receipt-divider" />
+          
+          <p><strong>ITENS:</strong></p>
+          {printingLog.items.map((item) => (
+            <div key={item.id} className="receipt-item">
+              <span>{item.quantity}x {item.name}</span>
+              <span>R$ {(item.price * item.quantity).toFixed(2)}</span>
+            </div>
+          ))}
+          
+          <div className="receipt-divider" />
+          
+          <div className="receipt-item">
+            <span>Subtotal</span>
+            <span>R$ {printingLog.subtotal.toFixed(2)}</span>
+          </div>
+          
+          {printingLog.isDelivery && (
+            <div className="receipt-item">
+              <span>Frete</span>
+              <span>R$ {printingLog.deliveryFee.toFixed(2)}</span>
+            </div>
+          )}
+          
+          <div className="receipt-total">
+            <div className="receipt-item">
+              <span>TOTAL</span>
+              <span>R$ {printingLog.total.toFixed(2)}</span>
+            </div>
+          </div>
+          
+          <div className="receipt-divider" />
+          
+          <p><strong>Pagamento:</strong> {formatPaymentMethod(printingLog.paymentMethod)}</p>
+          
+          <div className="receipt-footer">
+            <p>*** REIMPRESSÃO ***</p>
+            <p>Obrigado pela preferência!</p>
+            <p>Volte sempre!</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
