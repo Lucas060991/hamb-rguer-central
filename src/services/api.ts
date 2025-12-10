@@ -28,6 +28,13 @@ export interface OrderData {
   resumo_itens: string;
   obs: string;
 }
+export interface NewProductData {
+  name: string;
+  description: string;
+  price: number;
+  category: string;
+  image: string;
+}
 
 export const api = {
   // Busca produtos e converte os nomes das colunas
@@ -52,40 +59,7 @@ export const api = {
   },
 
   // Envia o pedido para a planilha
-  createOrder: async (order: OrderData) => {
-    try {
-      await fetch(GOOGLE_SCRIPT_URL, {
-        method: "POST",
-        mode: "no-cors", // Importante para evitar erros de bloqueio do Google
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(order)
-      });
-      return true;
-    } catch (error) {
-      console.error("Erro ao enviar pedido:", error);
-      return false;
-    }
-  }
-
-};
-// src/services/api.ts
-
-// ... (Mantenha o código anterior e interfaces)
-
-// Interface para criar produto (sem ID, pois o Sheets gera)
-export interface NewProductData {
-  name: string;
-  description: string;
-  price: number;
-  category: string;
-  image: string;
-}
-
-export const api = {
-  // ... (Mantenha getProducts e createOrder igual estava)
-
-  // 1. ATUALIZE O CREATE ORDER PARA MANDAR A ACTION (Opcional, mas recomendado)
-  createOrder: async (order: OrderData) => {
+createOrder: async (order: OrderData) => {
     try {
       await fetch(GOOGLE_SCRIPT_URL, {
         method: "POST",
@@ -103,7 +77,6 @@ export const api = {
     }
   },
 
-  // 2. ADICIONE ESSA NOVA FUNÇÃO:
   addProduct: async (product: NewProductData) => {
     try {
       // Mapeia do Inglês (Site) para Português (Planilha)
@@ -129,3 +102,4 @@ export const api = {
     }
   }
 };
+
