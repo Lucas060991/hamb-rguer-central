@@ -34,7 +34,7 @@ export function Navigation({ activeTab, onTabChange, cartCount, kitchenCount, pa
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <h1 className="text-2xl md:text-3xl font-display text-primary tracking-wider">
-            🍔 HAMBURGUERIA CENTRAL
+            🍔 CENTRAL BURGUER
           </h1>
           
           <div className="hidden md:flex items-center gap-2">
