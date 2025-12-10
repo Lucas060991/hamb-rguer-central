@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Minus, Plus, Trash2, Truck, ShoppingBag } from 'lucide-react';
-import { CartItem, Customer, updateCartItemQuantity, createOrder } from '@/lib/storage';
+import { Minus, Plus, Trash2, Truck, ShoppingBag, Loader2 } from 'lucide-react'; // Adicionei Loader2
+import { CartItem, Customer, updateCartItemQuantity, createOrder, clearCart } from '@/lib/storage'; // Adicionei clearCart
 import { toast } from 'sonner';
+import { api } from '@/services/api';
 
 interface CartScreenProps {
   cart: CartItem[];
@@ -13,6 +14,7 @@ const DELIVERY_FEE = 5.00;
 
 export function CartScreen({ cart, onCartChange, onOrderCreated }: CartScreenProps) {
   const [isDelivery, setIsDelivery] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); // Novo estado de loading
   const [customer, setCustomer] = useState<Customer>({
     name: '',
     address: '',
@@ -27,7 +29,7 @@ export function CartScreen({ cart, onCartChange, onOrderCreated }: CartScreenPro
     onCartChange();
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (cart.length === 0) {
@@ -45,12 +47,55 @@ export function CartScreen({ cart, onCartChange, onOrderCreated }: CartScreenPro
       return;
     }
 
-    const order = createOrder(customer, cart, isDelivery);
-    toast.success(`Pedido #${order.orderNumber} enviado para a cozinha!`);
-    
-    setCustomer({ name: '', address: '', phone: '' });
-    setIsDelivery(false);
-    onOrderCreated();
+    setIsSubmitting(true); // Bloqueia o botão
+
+    try {
+      // 1. Cria o pedido localmente (para gerar o ID e manter histórico local)
+      const localOrder = createOrder(customer, cart, isDelivery);
+      
+      // 2. Prepara os dados para o Google Sheets
+      // Formatamos o texto para sair bonito na "impressora"
+      const resumoImpressao = cart
+        .map(item => `${item.quantity}x ${item.name} \n   (R$ ${(item.price * item.quantity).toFixed(2)})`)
+        .join('\n----------------\n');
+
+      const dadosParaPlanilha = {
+        id_pedido: `#${localOrder.orderNumber}`,
+        cliente: {
+          nome: customer.name,
+          telefone: customer.phone,
+          endereco_rua: isDelivery ? customer.address : "Retirada no Balcão",
+          endereco_numero: "", // Se quiser, pode separar o numero no form depois
+          bairro: "" 
+        },
+        tipo_entrega: isDelivery ? "Delivery" : "Retirada",
+        forma_pagto: "A Combinar", // Como ainda não tem tela de pgto, vai como padrão
+        total: total,
+        resumo_itens: resumoImpressao,
+        obs: ""
+      };
+
+      // 3. Envia para a API do Google Apps Script
+      const sucesso = await api.createOrder(dadosParaPlanilha);
+
+      if (sucesso) {
+        toast.success(`Pedido #${localOrder.orderNumber} enviado para a cozinha!`);
+        
+        // Limpeza
+        setCustomer({ name: '', address: '', phone: '' });
+        setIsDelivery(false);
+        clearCart(); // Importante: Limpar o carrinho visualmente
+        onOrderCreated(); // Atualiza a tela principal
+      } else {
+        toast.error("Erro ao conectar com a cozinha. Tente novamente.");
+      }
+
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro inesperado ao enviar pedido.");
+    } finally {
+      setIsSubmitting(false); // Libera o botão
+    }
   };
 
   if (cart.length === 0) {
@@ -90,6 +135,7 @@ export function CartScreen({ cart, onCartChange, onOrderCreated }: CartScreenPro
               <button
                 onClick={() => handleQuantityChange(item.id, item.quantity - 1)}
                 className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center hover:bg-secondary/80 transition-colors"
+                disabled={isSubmitting}
               >
                 {item.quantity === 1 ? (
                   <Trash2 className="w-4 h-4 text-destructive" />
@@ -101,6 +147,7 @@ export function CartScreen({ cart, onCartChange, onOrderCreated }: CartScreenPro
               <button
                 onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
                 className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center hover:bg-secondary/80 transition-colors"
+                disabled={isSubmitting}
               >
                 <Plus className="w-4 h-4" />
               </button>
@@ -123,13 +170,15 @@ export function CartScreen({ cart, onCartChange, onOrderCreated }: CartScreenPro
               onChange={(e) => setCustomer({ ...customer, name: e.target.value })}
               className="input-field"
               required
+              disabled={isSubmitting}
             />
             <input
               type="tel"
-              placeholder="Telefone"
+              placeholder="Telefone (WhatsApp)"
               value={customer.phone}
               onChange={(e) => setCustomer({ ...customer, phone: e.target.value })}
               className="input-field"
+              disabled={isSubmitting}
             />
             
             <label className="flex items-center gap-3 cursor-pointer py-2">
@@ -139,6 +188,7 @@ export function CartScreen({ cart, onCartChange, onOrderCreated }: CartScreenPro
                   checked={isDelivery}
                   onChange={(e) => setIsDelivery(e.target.checked)}
                   className="sr-only peer"
+                  disabled={isSubmitting}
                 />
                 <div className="w-6 h-6 rounded border-2 border-border peer-checked:bg-primary peer-checked:border-primary transition-colors flex items-center justify-center">
                   {isDelivery && <Truck className="w-4 h-4 text-primary-foreground" />}
@@ -155,6 +205,7 @@ export function CartScreen({ cart, onCartChange, onOrderCreated }: CartScreenPro
                 onChange={(e) => setCustomer({ ...customer, address: e.target.value })}
                 className="input-field animate-slide-in"
                 required
+                disabled={isSubmitting}
               />
             )}
           </div>
@@ -178,8 +229,19 @@ export function CartScreen({ cart, onCartChange, onOrderCreated }: CartScreenPro
             </div>
           </div>
 
-          <button type="submit" className="btn-primary w-full text-lg py-4">
-            Confirmar Pedido
+          <button 
+            type="submit" 
+            className="btn-primary w-full text-lg py-4 flex items-center justify-center gap-2"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Enviando Pedido...
+              </>
+            ) : (
+              "Confirmar Pedido"
+            )}
           </button>
         </div>
       </form>
