@@ -245,7 +245,7 @@ export function saveOrders(orders: Order[]): void {
 
 export function createOrder(customer: Customer, items: CartItem[], isDelivery: boolean, customDeliveryFee: number = 0): Order {
   const orderNumber = Math.floor(1000 + Math.random() * 9000).toString();
-  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+ const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
   
   const finalDeliveryFee = isDelivery ? customDeliveryFee : 0;
   
@@ -257,7 +257,7 @@ export function createOrder(customer: Customer, items: CartItem[], isDelivery: b
     items: [...items],
     customer,
     isDelivery,
-    deliveryFee: finalDeliveryFee, // <--- SALVE O VALOR CORRETO AQUI
+    deliveryFee: finalDeliveryFee,
     subtotal,
     total,
     status: 'pending',
