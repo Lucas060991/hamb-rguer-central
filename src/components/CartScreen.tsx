@@ -55,7 +55,7 @@ export function CartScreen({ cart, onCartChange, onOrderCreated }: CartScreenPro
     setIsSubmitting(true);
 
     try {
-      const localOrder = createOrder(customer, cart, isDelivery);
+  const localOrder = createOrder(customer, cart, isDelivery, deliveryFee);
       
       const resumoImpressao = cart
         .map(item => `${item.quantity}x ${item.name} \n   (R$ ${(item.price * item.quantity).toFixed(2)})`)
