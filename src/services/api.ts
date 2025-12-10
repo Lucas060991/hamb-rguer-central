@@ -1,7 +1,7 @@
 // src/services/api.ts
 
 // 🔴 ATENÇÃO: SE VOCÊ GEROU UMA NOVA IMPLANTAÇÃO, A URL MUDOU! PEGUE A NOVA URL.
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzpObZeKRktK6XyqUEcPO_Yc-q4fmn3nwhXlRS21ZP1WB3-fWEWREHQAmf0hn9BFC0/exec";
+const GOOGLE_SCRIPT_URL = "https://https://script.google.com/macros/s/AKfycbzpObZeKRktK6XyqUEcPO_Yc-q4fmn3nwhXlRS21ZP1WB3-fWEWREHQAmf0hn9BFC0/exec";
 
 // ... interfaces (Product, OrderData, etc) mantêm igual ...
 
@@ -65,4 +65,5 @@ export const api = {
     return api._sendData(payload);
   }
 };
+
 
