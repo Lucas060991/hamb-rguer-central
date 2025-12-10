@@ -66,4 +66,66 @@ export const api = {
       return false;
     }
   }
+
+};
+// src/services/api.ts
+
+// ... (Mantenha o código anterior e interfaces)
+
+// Interface para criar produto (sem ID, pois o Sheets gera)
+export interface NewProductData {
+  name: string;
+  description: string;
+  price: number;
+  category: string;
+  image: string;
+}
+
+export const api = {
+  // ... (Mantenha getProducts e createOrder igual estava)
+
+  // 1. ATUALIZE O CREATE ORDER PARA MANDAR A ACTION (Opcional, mas recomendado)
+  createOrder: async (order: OrderData) => {
+    try {
+      await fetch(GOOGLE_SCRIPT_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: 'create_order', // <--- Importante para o script saber
+          ...order
+        })
+      });
+      return true;
+    } catch (error) {
+      console.error("Erro ao enviar pedido:", error);
+      return false;
+    }
+  },
+
+  // 2. ADICIONE ESSA NOVA FUNÇÃO:
+  addProduct: async (product: NewProductData) => {
+    try {
+      // Mapeia do Inglês (Site) para Português (Planilha)
+      const payload = {
+        action: 'create_product', // <--- O SEGREDO ESTÁ AQUI
+        nome: product.name,
+        descricao: product.description,
+        preco: product.price,
+        categoria: product.category,
+        imagem_url: product.image
+      };
+
+      await fetch(GOOGLE_SCRIPT_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      return true;
+    } catch (error) {
+      console.error("Erro ao adicionar produto:", error);
+      return false;
+    }
+  }
 };
