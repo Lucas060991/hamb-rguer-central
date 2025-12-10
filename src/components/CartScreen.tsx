@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Minus, Plus, Trash2, Truck, ShoppingBag, Loader2 } from 'lucide-react'; // Adicionei Loader2
-import { CartItem, Customer, updateCartItemQuantity, createOrder, clearCart } from '@/lib/storage'; // Adicionei clearCart
+import { Minus, Plus, Trash2, Truck, ShoppingBag, Loader2, Pencil, Check } from 'lucide-react'; // Adicionei Pencil e Check
+import { CartItem, Customer, updateCartItemQuantity, createOrder, clearCart } from '@/lib/storage';
 import { toast } from 'sonner';
 import { api } from '@/services/api';
 
@@ -10,11 +10,14 @@ interface CartScreenProps {
   onOrderCreated: () => void;
 }
 
-const DELIVERY_FEE = 5.00;
-
 export function CartScreen({ cart, onCartChange, onOrderCreated }: CartScreenProps) {
   const [isDelivery, setIsDelivery] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false); // Novo estado de loading
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // --- MUDANÇA 1: Frete agora é um estado (começa fixo em 5.00) ---
+  const [deliveryFee, setDeliveryFee] = useState(5.00);
+  const [isEditingFee, setIsEditingFee] = useState(false); // Controla se está editando
+  
   const [customer, setCustomer] = useState<Customer>({
     name: '',
     address: '',
@@ -22,7 +25,9 @@ export function CartScreen({ cart, onCartChange, onOrderCreated }: CartScreenPro
   });
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const total = subtotal + (isDelivery ? DELIVERY_FEE : 0);
+  
+  // --- MUDANÇA 2: Usa a variável deliveryFee no cálculo ---
+  const total = subtotal + (isDelivery ? deliveryFee : 0);
 
   const handleQuantityChange = (productId: string, newQuantity: number) => {
     updateCartItemQuantity(productId, newQuantity);
@@ -47,14 +52,11 @@ export function CartScreen({ cart, onCartChange, onOrderCreated }: CartScreenPro
       return;
     }
 
-    setIsSubmitting(true); // Bloqueia o botão
+    setIsSubmitting(true);
 
     try {
-      // 1. Cria o pedido localmente (para gerar o ID e manter histórico local)
       const localOrder = createOrder(customer, cart, isDelivery);
       
-      // 2. Prepara os dados para o Google Sheets
-      // Formatamos o texto para sair bonito na "impressora"
       const resumoImpressao = cart
         .map(item => `${item.quantity}x ${item.name} \n   (R$ ${(item.price * item.quantity).toFixed(2)})`)
         .join('\n----------------\n');
@@ -65,27 +67,24 @@ export function CartScreen({ cart, onCartChange, onOrderCreated }: CartScreenPro
           nome: customer.name,
           telefone: customer.phone,
           endereco_rua: isDelivery ? customer.address : "Retirada no Balcão",
-          endereco_numero: "", // Se quiser, pode separar o numero no form depois
+          endereco_numero: "", 
           bairro: "" 
         },
         tipo_entrega: isDelivery ? "Delivery" : "Retirada",
-        forma_pagto: "A Combinar", // Como ainda não tem tela de pgto, vai como padrão
+        forma_pagto: "A Combinar",
         total: total,
         resumo_itens: resumoImpressao,
-        obs: ""
+        obs: `Taxa de entrega aplicada: R$ ${deliveryFee.toFixed(2)}` // Adicionei obs do frete
       };
 
-      // 3. Envia para a API do Google Apps Script
       const sucesso = await api.createOrder(dadosParaPlanilha);
 
       if (sucesso) {
         toast.success(`Pedido #${localOrder.orderNumber} enviado para a cozinha!`);
-        
-        // Limpeza
         setCustomer({ name: '', address: '', phone: '' });
         setIsDelivery(false);
-        clearCart(); // Importante: Limpar o carrinho visualmente
-        onOrderCreated(); // Atualiza a tela principal
+        clearCart();
+        onOrderCreated();
       } else {
         toast.error("Erro ao conectar com a cozinha. Tente novamente.");
       }
@@ -94,7 +93,7 @@ export function CartScreen({ cart, onCartChange, onOrderCreated }: CartScreenPro
       console.error(error);
       toast.error("Erro inesperado ao enviar pedido.");
     } finally {
-      setIsSubmitting(false); // Libera o botão
+      setIsSubmitting(false);
     }
   };
 
@@ -194,7 +193,10 @@ export function CartScreen({ cart, onCartChange, onOrderCreated }: CartScreenPro
                   {isDelivery && <Truck className="w-4 h-4 text-primary-foreground" />}
                 </div>
               </div>
-              <span className="text-foreground">Para Entrega? (+R$ {DELIVERY_FEE.toFixed(2)})</span>
+              <span className="text-foreground">
+                 {/* Mostra o valor atualizado dinamicamente no checkbox também */}
+                 Para Entrega? (+R$ {deliveryFee.toFixed(2)})
+              </span>
             </label>
 
             {isDelivery && (
@@ -217,12 +219,53 @@ export function CartScreen({ cart, onCartChange, onOrderCreated }: CartScreenPro
               <span>Subtotal</span>
               <span>R$ {subtotal.toFixed(2)}</span>
             </div>
+            
             {isDelivery && (
-              <div className="flex justify-between text-muted-foreground">
+              <div className="flex justify-between items-center text-muted-foreground animate-slide-in">
                 <span>Taxa de Entrega</span>
-                <span>R$ {DELIVERY_FEE.toFixed(2)}</span>
+                
+                {/* --- MUDANÇA 3: UI de Edição do Frete --- */}
+                <div className="flex items-center gap-2">
+                  {isEditingFee ? (
+                    // Modo Edição: Input numérico
+                    <div className="flex items-center gap-1">
+                        <span className="text-sm">R$</span>
+                        <input 
+                            type="number"
+                            value={deliveryFee}
+                            onChange={(e) => setDeliveryFee(Number(e.target.value))}
+                            className="w-20 p-1 border border-primary rounded text-right text-foreground bg-background"
+                            step="0.50"
+                            min="0"
+                        />
+                        <button 
+                            type="button" 
+                            onClick={() => setIsEditingFee(false)}
+                            className="p-1 hover:bg-secondary rounded"
+                        >
+                            <Check className="w-4 h-4 text-green-500" />
+                        </button>
+                    </div>
+                  ) : (
+                    // Modo Visualização: Texto + Ícone Lápis
+                    <>
+                        <span>R$ {deliveryFee.toFixed(2)}</span>
+                        <button 
+                            type="button" 
+                            onClick={() => setIsEditingFee(true)}
+                            className="text-primary hover:text-primary/80 transition-colors ml-1"
+                            title="Editar valor do frete"
+                        >
+                            <Pencil className="w-3 h-3" />
+                        </button>
+                    </>
+                  )}
+                </div>
+                {/* ------------------------------------- */}
+                
               </div>
             )}
+            
             <div className="flex justify-between text-xl font-bold text-foreground pt-2 border-t border-border">
               <span>Total</span>
               <span className="text-primary">R$ {total.toFixed(2)}</span>
