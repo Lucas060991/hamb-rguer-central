@@ -1,15 +1,13 @@
-import { api } from '@/services/api'; 
-
-// --- CONFIGURAÇÃO DE CHAVES ---
+// Storage keys
 const STORAGE_KEYS = {
   PRODUCTS: 'hamburgueria_products',
   CART: 'hamburgueria_cart',
-  ORDERS: 'hamburgueria_orders', // Unificamos tudo aqui
+  ORDERS: 'hamburgueria_orders',
   LOGS: 'hamburgueria_logs',
   ORDER_COUNTER: 'hamburgueria_order_counter',
 } as const;
 
-// --- TYPES ---
+// Types
 export interface Product {
   id: string;
   name: string;
@@ -30,24 +28,25 @@ export interface Customer {
 
 export interface Order {
   id: string;
-  orderNumber: string; // CORREÇÃO: Mudado para string para aceitar o .toString()
+  orderNumber: number;
   customer: Customer;
   items: CartItem[];
   subtotal: number;
   deliveryFee: number;
   total: number;
   isDelivery: boolean;
-  status: 'pending' | 'kitchen' | 'payment' | 'completed'; // Adicionado 'pending' que faltava
-  createdAt: number; // CORREÇÃO: Mudado para number para aceitar Date.now()
+  status: 'kitchen' | 'payment' | 'completed';
+  createdAt: string;
   paymentMethod?: 'pix' | 'dinheiro' | 'cartao';
 }
 
 export interface LogEntry {
-  orderNumber: string; // CORREÇÃO: string
+  orderNumber: number;
   dateTime: string;
   customerName: string;
   paymentMethod: string;
   total: number;
+  // Full order data for reprinting
   customer: Customer;
   items: CartItem[];
   subtotal: number;
@@ -55,7 +54,7 @@ export interface LogEntry {
   isDelivery: boolean;
 }
 
-// --- DEFAULT PRODUCTS ---
+// Default products
 const defaultProducts: Product[] = [
   {
     id: '1',
@@ -136,7 +135,7 @@ const defaultProducts: Product[] = [
   },
 ];
 
-// --- HELPER FUNCTIONS ---
+// Helper functions
 function getFromStorage<T>(key: string, defaultValue: T): T {
   try {
     const item = localStorage.getItem(key);
@@ -150,7 +149,7 @@ function setToStorage<T>(key: string, value: T): void {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
-// --- PRODUCTS ---
+// Products
 export function getProducts(): Product[] {
   const products = getFromStorage<Product[]>(STORAGE_KEYS.PRODUCTS, []);
   if (products.length === 0) {
@@ -189,7 +188,7 @@ export function deleteProduct(id: string): void {
   saveProducts(products);
 }
 
-// --- CART ---
+// Cart
 export function getCart(): CartItem[] {
   return getFromStorage<CartItem[]>(STORAGE_KEYS.CART, []);
 }
@@ -228,7 +227,7 @@ export function clearCart(): void {
   saveCart([]);
 }
 
-// --- ORDERS ---
+// Orders
 export function getNextOrderNumber(): number {
   const counter = getFromStorage<number>(STORAGE_KEYS.ORDER_COUNTER, 1000);
   const nextNumber = counter + 1;
@@ -244,40 +243,30 @@ export function saveOrders(orders: Order[]): void {
   setToStorage(STORAGE_KEYS.ORDERS, orders);
 }
 
-// *** FUNÇÃO PRINCIPAL CORRIGIDA ***
-export function createOrder(
-  customer: Customer, 
-  items: CartItem[], 
-  isDelivery: boolean, 
-  customDeliveryFee: number = 0
-): Order {
-  // Gerando número como string para compatibilidade
-  const orderNumber = Math.floor(1000 + Math.random() * 9000).toString();
-  
+export function createOrder(customer: Customer, items: CartItem[], isDelivery: boolean): Order {
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const deliveryFee = isDelivery ? 5.00 : 0;
+  const total = subtotal + deliveryFee;
   
-  const finalDeliveryFee = isDelivery ? customDeliveryFee : 0;
-  
-  const total = subtotal + finalDeliveryFee;
-
-  const newOrder: Order = {
-    id: crypto.randomUUID(),
-    orderNumber,
-    items: [...items],
+  const order: Order = {
+    id: Date.now().toString(),
+    orderNumber: getNextOrderNumber(),
     customer,
-    isDelivery,
-    deliveryFee: finalDeliveryFee,
+    items,
     subtotal,
+    deliveryFee,
     total,
-    status: 'pending',
-    createdAt: Date.now(), // Agora é number (timestamp)
+    isDelivery,
+    status: 'kitchen',
+    createdAt: new Date().toISOString(),
   };
-
+  
   const orders = getOrders();
-  orders.push(newOrder);
-  saveOrders(orders); // Usa a função correta para salvar com a chave correta
-
-  return newOrder;
+  orders.push(order);
+  saveOrders(orders);
+  clearCart();
+  
+  return order;
 }
 
 export function updateOrderStatus(orderId: string, status: Order['status'], paymentMethod?: Order['paymentMethod']): void {
@@ -296,7 +285,7 @@ export function getOrdersByStatus(status: Order['status']): Order[] {
   return getOrders().filter(o => o.status === status);
 }
 
-// --- LOGS ---
+// Logs
 export function getLogs(): LogEntry[] {
   return getFromStorage<LogEntry[]>(STORAGE_KEYS.LOGS, []);
 }
@@ -309,6 +298,7 @@ export function addLog(order: Order): void {
     customerName: order.customer.name,
     paymentMethod: order.paymentMethod || 'N/A',
     total: order.total,
+    // Full order data for reprinting
     customer: order.customer,
     items: order.items,
     subtotal: order.subtotal,
