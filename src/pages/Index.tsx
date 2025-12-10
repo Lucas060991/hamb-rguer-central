@@ -100,8 +100,8 @@ const Index = () => {
 
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
-  return (
-    <div className="min-h-screen bg-background">
+ return (
+    <div className="min-h-screen bg-background pb-24 md:pb-0"> {/* Adicionei padding bottom para mobile */}
       <Navigation
         activeTab={activeTab}
         onTabChange={handleTabChange}
@@ -121,11 +121,14 @@ const Index = () => {
       />
 
       <main className="container mx-auto px-4 py-8">
+        
+        {/* 1. CARDÁPIO */}
         {activeTab === 'menu' && (
           <>
             {loadingProducts ? (
-              <div className="text-center py-10">
-                <p className="text-xl">Carregando cardápio do Google Sheets...</p>
+              <div className="flex flex-col items-center justify-center py-20 space-y-4">
+                 {/* Adicionei um loading state mais bonito se quiser */}
+                 <p className="text-xl font-medium text-muted-foreground">Carregando cardápio...</p>
               </div>
             ) : (
               <MenuScreen
@@ -137,6 +140,7 @@ const Index = () => {
           </>
         )}
 
+        {/* 2. CARRINHO */}
         {activeTab === 'cart' && (
           <CartScreen
             cart={cart}
@@ -145,13 +149,7 @@ const Index = () => {
           />
         )}
 
-        {activeTab === 'kitchen' && (
-          <KitchenScreen
-            orders={kitchenOrders}
-            onOrdersChange={refreshLocalData}
-          />
-        )}
-
+        {/* 3. PAGAMENTO (Agora aqui) */}
         {activeTab === 'payment' && (
           <PaymentScreen
             orders={paymentOrders}
@@ -159,6 +157,15 @@ const Index = () => {
           />
         )}
 
+        {/* 4. COZINHA (Agora aqui) */}
+        {activeTab === 'kitchen' && (
+          <KitchenScreen
+            orders={kitchenOrders}
+            onOrdersChange={refreshLocalData}
+          />
+        )}
+
+        {/* 5. HISTÓRICO */}
         {activeTab === 'logs' && (
           <LogsScreen
             logs={logs}
@@ -167,6 +174,7 @@ const Index = () => {
         )}
       </main>
 
+      {/* Botão flutuante para mobile (opcional, mantém o carrinho acessível) */}
       <FloatingCart
         count={cartCount}
         onClick={() => setActiveTab('cart')}
