@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Plus, Pencil, Trash2, Settings, Lock } from 'lucide-react';
-import { Product, addProduct, updateProduct, deleteProduct, addToCart } from '@/lib/storage';
+import { Plus, Pencil, Trash2, Settings, Lock, Loader2 } from 'lucide-react'; // Adicionei Loader2
+import { Product, updateProduct, deleteProduct, addToCart } from '@/lib/storage'; // Removi addProduct local
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { LoginModal } from '@/components/LoginModal';
+import { api } from '@/services/api'; // <--- IMPORTANTE: Importando a API
 
 interface MenuScreenProps {
   products: Product[];
@@ -16,12 +17,17 @@ export function MenuScreen({ products, onProductsChange, onAddToCart }: MenuScre
   const [showAdmin, setShowAdmin] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  
+  // Novo estado para controlar o loading do envio
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     price: '',
     image: '',
+    category: 'Lanches' // Adicionei categoria (obrigatório para a planilha)
   });
 
   const handleAdminClick = () => {
@@ -49,26 +55,47 @@ export function MenuScreen({ products, onProductsChange, onAddToCart }: MenuScre
     toast.success(`${product.name} adicionado ao carrinho!`);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const productData = {
-      name: formData.name,
-      description: formData.description,
-      price: parseFloat(formData.price),
-      image: formData.image || 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&h=300&fit=crop',
-    };
+    setIsSubmitting(true); // Bloqueia botão
 
-    if (editingProduct) {
-      updateProduct(editingProduct.id, productData);
-      toast.success('Produto atualizado!');
-    } else {
-      addProduct(productData);
-      toast.success('Produto adicionado!');
+    try {
+      const productData = {
+        name: formData.name,
+        description: formData.description,
+        price: parseFloat(formData.price),
+        category: formData.category,
+        image: formData.image || 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&h=300&fit=crop',
+      };
+
+      if (editingProduct) {
+        // OBS: A edição ainda é local. Para editar na planilha, precisaria atualizar o script.
+        updateProduct(editingProduct.id, productData);
+        toast.success('Produto atualizado localmente!');
+      } else {
+        // --- AQUI A MÁGICA ACONTECE ---
+        // Envia para o Google Sheets
+        const sucesso = await api.addProduct(productData);
+        
+        if (sucesso) {
+            toast.success('Produto enviado para a Planilha!');
+        } else {
+            toast.error('Erro ao salvar na planilha.');
+        }
+      }
+
+      resetForm();
+      // Dá um tempo para o Google Sheets processar antes de recarregar
+      setTimeout(() => {
+        onProductsChange(); 
+      }, 2000);
+
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro inesperado");
+    } finally {
+      setIsSubmitting(false); // Libera botão
     }
-
-    resetForm();
-    onProductsChange();
   };
 
   const handleEdit = (product: Product) => {
@@ -78,12 +105,13 @@ export function MenuScreen({ products, onProductsChange, onAddToCart }: MenuScre
       description: product.description,
       price: product.price.toString(),
       image: product.image,
+      category: product.category || 'Lanches'
     });
     setShowForm(true);
   };
 
   const handleDelete = (product: Product) => {
-    if (confirm(`Remover "${product.name}"?`)) {
+    if (confirm(`Remover "${product.name}"? (Isso removerá apenas visualmente por enquanto)`)) {
       deleteProduct(product.id);
       onProductsChange();
       toast.success('Produto removido!');
@@ -91,7 +119,7 @@ export function MenuScreen({ products, onProductsChange, onAddToCart }: MenuScre
   };
 
   const resetForm = () => {
-    setFormData({ name: '', description: '', price: '', image: '' });
+    setFormData({ name: '', description: '', price: '', image: '', category: 'Lanches' });
     setEditingProduct(null);
     setShowForm(false);
   };
@@ -140,6 +168,7 @@ export function MenuScreen({ products, onProductsChange, onAddToCart }: MenuScre
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="input-field"
                   required
+                  disabled={isSubmitting}
                 />
                 <input
                   type="number"
@@ -149,8 +178,23 @@ export function MenuScreen({ products, onProductsChange, onAddToCart }: MenuScre
                   onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                   className="input-field"
                   required
+                  disabled={isSubmitting}
                 />
               </div>
+              
+              {/* Adicionei campo de Categoria, útil para organizar na planilha */}
+              <select 
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                className="input-field"
+                disabled={isSubmitting}
+              >
+                <option value="Lanches">Lanches</option>
+                <option value="Bebidas">Bebidas</option>
+                <option value="Combos">Combos</option>
+                <option value="Sobremesas">Sobremesas</option>
+              </select>
+
               <input
                 type="text"
                 placeholder="Descrição"
@@ -158,6 +202,7 @@ export function MenuScreen({ products, onProductsChange, onAddToCart }: MenuScre
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 className="input-field"
                 required
+                disabled={isSubmitting}
               />
               <input
                 type="url"
@@ -165,12 +210,29 @@ export function MenuScreen({ products, onProductsChange, onAddToCart }: MenuScre
                 value={formData.image}
                 onChange={(e) => setFormData({ ...formData, image: e.target.value })}
                 className="input-field"
+                disabled={isSubmitting}
               />
               <div className="flex gap-2">
-                <button type="submit" className="btn-primary">
-                  {editingProduct ? 'Atualizar' : 'Adicionar'}
+                <button 
+                  type="submit" 
+                  className="btn-primary flex items-center gap-2"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Salvando...
+                    </>
+                  ) : (
+                    editingProduct ? 'Atualizar' : 'Adicionar'
+                  )}
                 </button>
-                <button type="button" onClick={resetForm} className="btn-secondary">
+                <button 
+                  type="button" 
+                  onClick={resetForm} 
+                  className="btn-secondary"
+                  disabled={isSubmitting}
+                >
                   Cancelar
                 </button>
               </div>
