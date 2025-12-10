@@ -1,3 +1,5 @@
+const ORDERS_KEY = "central-burguer-orders";
+
 // Storage keys
 const STORAGE_KEYS = {
   PRODUCTS: 'hamburgueria_products',
