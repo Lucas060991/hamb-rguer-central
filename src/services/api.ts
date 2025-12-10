@@ -65,3 +65,4 @@ export const api = {
     return api._sendData(payload);
   }
 };
+
