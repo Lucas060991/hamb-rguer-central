@@ -1,5 +1,6 @@
 // src/lib/storage.ts
 
+// --- TIPOS (Definidos localmente para evitar erros de importação) ---
 export interface Product {
   id: string;
   name: string;
@@ -25,7 +26,7 @@ export interface Order {
   items: CartItem[];
   customer: Customer;
   total: number;
-  status: 'payment' | 'kitchen' | 'completed'; // <--- ORDEM CORRETA
+  status: 'payment' | 'kitchen' | 'completed'; // Fluxo: Pagamento -> Cozinha -> Histórico
   timestamp: number;
   isDelivery: boolean;
 }
@@ -37,30 +38,51 @@ export interface LogEntry {
   details: string;
 }
 
-// --- CARRINHO ---
-export const getCart = (): CartItem[] => {
-  try { return JSON.parse(localStorage.getItem('hamb_central_cart') || '[]'); } catch { return []; }
+// --- FUNÇÕES SEGURAS (SAFE PARSE) ---
+
+// Função auxiliar para ler do localStorage sem quebrar
+const safeGet = <T>(key: string, fallback: T): T => {
+  try {
+    const item = localStorage.getItem(key);
+    return item ? JSON.parse(item) : fallback;
+  } catch (error) {
+    console.warn(`Erro ao ler ${key}, resetando dados.`, error);
+    localStorage.removeItem(key); // Limpa o dado corrompido
+    return fallback;
+  }
 };
+
+// --- CARRINHO ---
+
+export const getCart = (): CartItem[] => safeGet('hamb_central_cart', []);
 
 export const addToCart = (product: Product) => {
   const cart = getCart();
+  // Converte IDs para string para evitar duplicação
   const index = cart.findIndex(item => String(item.id) === String(product.id));
-  if (index > -1) cart[index].quantity += 1;
-  else cart.push({ ...product, quantity: 1 });
+  
+  if (index > -1) {
+    cart[index].quantity += 1;
+  } else {
+    cart.push({ ...product, quantity: 1 });
+  }
   localStorage.setItem('hamb_central_cart', JSON.stringify(cart));
 };
 
 export const updateCartItemQuantity = (productId: string, quantity: number) => {
   const cart = getCart();
-  const newCart = quantity < 1 
-    ? cart.filter(item => String(item.id) !== String(productId))
-    : cart.map(item => String(item.id) === String(productId) ? { ...item, quantity } : item);
+  let newCart;
+  if (quantity < 1) {
+    newCart = cart.filter(item => String(item.id) !== String(productId));
+  } else {
+    newCart = cart.map(item => String(item.id) === String(productId) ? { ...item, quantity } : item);
+  }
   localStorage.setItem('hamb_central_cart', JSON.stringify(newCart));
 };
 
 export const clearCart = () => localStorage.removeItem('hamb_central_cart');
 
-// --- PEDIDOS (LÓGICA CORRIGIDA) ---
+// --- PEDIDOS (ORDER FLOW) ---
 
 export const createOrder = (customer: Customer, items: CartItem[], isDelivery: boolean): Order => {
   const orderNumber = Math.floor(1000 + Math.random() * 9000).toString();
@@ -71,7 +93,7 @@ export const createOrder = (customer: Customer, items: CartItem[], isDelivery: b
     items,
     customer,
     total: items.reduce((acc, item) => acc + (item.price * item.quantity), 0) + (isDelivery ? 5 : 0),
-    status: 'payment', // <--- AGORA NASCE NO PAGAMENTO
+    status: 'payment', // Começa SEMPRE no pagamento
     timestamp: Date.now(),
     isDelivery
   };
@@ -84,39 +106,41 @@ export const createOrder = (customer: Customer, items: CartItem[], isDelivery: b
 };
 
 export const getOrdersByStatus = (status: string): Order[] => {
-  try { return JSON.parse(localStorage.getItem(`hamb_central_orders_${status}`) || '[]'); } catch { return []; }
+  return safeGet(`hamb_central_orders_${status}`, []);
 };
 
-// Mover pedido de uma fase para outra
 export const updateOrderStatus = (orderId: string, newStatus: 'kitchen' | 'completed') => {
-  // 1. Busca o pedido em qualquer lugar que ele esteja (payment ou kitchen)
-  const allOrders = [...getOrdersByStatus('payment'), ...getOrdersByStatus('kitchen')];
-  const order = allOrders.find(o => o.id === orderId);
-
-  if (!order) return;
-
-  // 2. Remove das listas anteriores
-  const payment = getOrdersByStatus('payment').filter(o => o.id !== orderId);
-  const kitchen = getOrdersByStatus('kitchen').filter(o => o.id !== orderId);
+  // Pega todas as listas possíveis para achar o pedido onde quer que ele esteja
+  const paymentOrders = getOrdersByStatus('payment');
+  const kitchenOrders = getOrdersByStatus('kitchen');
   
-  localStorage.setItem('hamb_central_orders_payment', JSON.stringify(payment));
-  localStorage.setItem('hamb_central_orders_kitchen', JSON.stringify(kitchen));
+  // Encontra o pedido
+  let order = paymentOrders.find(o => o.id === orderId) || kitchenOrders.find(o => o.id === orderId);
 
-  // 3. Adiciona na nova lista
-  order.status = newStatus; // Atualiza o status no objeto
+  if (!order) return; // Se não achar, aborta
+
+  // Remove das listas antigas
+  const newPayment = paymentOrders.filter(o => o.id !== orderId);
+  const newKitchen = kitchenOrders.filter(o => o.id !== orderId);
+  
+  localStorage.setItem('hamb_central_orders_payment', JSON.stringify(newPayment));
+  localStorage.setItem('hamb_central_orders_kitchen', JSON.stringify(newKitchen));
+
+  // Adiciona na nova lista
+  order.status = newStatus;
 
   if (newStatus === 'kitchen') {
-    localStorage.setItem('hamb_central_orders_kitchen', JSON.stringify([...kitchen, order]));
+    // Vai para cozinha
+    localStorage.setItem('hamb_central_orders_kitchen', JSON.stringify([...newKitchen, order]));
   } else if (newStatus === 'completed') {
-    // Se for completed, vai para o histórico local também (Logs)
-    addLog('Pedido Finalizado', `Pedido #${order.orderNumber} entregue.`);
+    // Vai para o histórico de logs local
+    addLog('Pedido Finalizado', `Pedido #${order.orderNumber} finalizado.`);
   }
 };
 
 // --- LOGS ---
-export const getLogs = (): LogEntry[] => {
-  try { return JSON.parse(localStorage.getItem('hamb_central_logs') || '[]'); } catch { return []; }
-};
+
+export const getLogs = (): LogEntry[] => safeGet('hamb_central_logs', []);
 
 export const addLog = (action: string, details: string) => {
   const logs = getLogs();
@@ -124,7 +148,7 @@ export const addLog = (action: string, details: string) => {
   localStorage.setItem('hamb_central_logs', JSON.stringify([newLog, ...logs].slice(0, 50)));
 };
 
-// --- COMPATIBILIDADE ---
+// --- STUBS (Para evitar erro em arquivos antigos) ---
 export const getProducts = () => [];
 export const addProduct = () => {};
 export const updateProduct = () => {};
